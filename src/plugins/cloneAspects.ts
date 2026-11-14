@@ -57,7 +57,8 @@ function apiError(e: any, full: string): Error {
 }
 
 export default definePlugin({
-    name: "CloneEmojis",
+    name: "CloneAspects",
+    formerNames: ["CloneEmojis"],
     description: "Right-click a custom emoji, a sticker or a server icon to clone it: emoji and stickers into a server where you're allowed to add them, and servers into a new server of your own (roles, channels, categories, permissions and icon, no messages or members).",
     authors: ["Vanta"],
     category: "Utility",

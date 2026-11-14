@@ -31,6 +31,8 @@ export interface PluginDef {
     needsWebpack?: boolean;
     /** Toggling needs a reload instead of start()/stop() */
     restartNeeded?: boolean;
+    /** Names this plugin had before, so a rename keeps people's settings */
+    formerNames?: string[];
     /** Why this plugin is risky (it does things the normal Discord app wouldn't). Shows a "Risky" tag and asks before turning it on. */
     risky?: string;
     options?: Record<string, PluginOption>;
@@ -103,6 +105,10 @@ export function registerPlugin(def: PluginDef): PluginInstance {
             logger.warn(`Duplicate plugin ${p.name} ignored`);
             return existing;
         }
+    }
+    // A renamed plugin keeps its on/off state and settings from its old name
+    for (const old of p.formerNames ?? []) {
+        if (!settings.plugins[p.name] && settings.plugins[old]) { settings.plugins[p.name] = settings.plugins[old]; delete settings.plugins[old]; }
     }
     const s = settings.plugins[p.name] ??= { enabled: !!p.enabledByDefault, options: {} };
     s.options ??= {};
