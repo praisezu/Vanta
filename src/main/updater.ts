@@ -41,22 +41,35 @@ export async function updaterInfo(root: string, version: string): Promise<Update
     return info;
 }
 
-async function latestRelease() {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+/**
+ * The newest release, by version number (not just GitHub's "latest" label, which can lag behind for a few minutes
+ * after a release), so someone a few versions behind goes straight to the newest one in a single update. The notes
+ * cover every version they're skipping.
+ */
+async function latestRelease(current?: string) {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/releases?per_page=30`, {
         headers: { Accept: "application/vnd.github+json", "User-Agent": "Vanta-Updater" },
     });
     if (res.status === 404) return null; // no releases yet
     if (!res.ok) throw new Error(`GitHub returned HTTP ${res.status}`);
-    const r = await res.json() as any;
-    const asset = (r.assets || []).find((a: any) => a.name === ASSET);
-    return { tag: String(r.tag_name), name: String(r.name || r.tag_name), notes: String(r.body || ""), url: String(r.html_url), download: asset?.browser_download_url as string | undefined };
+    const all = (await res.json() as any[])
+        .filter(r => !r.draft && !r.prerelease && (r.assets || []).some((a: any) => a.name === ASSET))
+        .sort((a, b) => compareVersions(b.tag_name, a.tag_name));
+    const r = all[0];
+    if (!r) return null;
+    const asset = r.assets.find((a: any) => a.name === ASSET);
+    const skipped = current ? all.filter(x => compareVersions(x.tag_name, current) > 0) : [r];
+    const notes = skipped.length > 1
+        ? skipped.map(x => `${String(x.tag_name).replace(/^v/i, "")}\n${String(x.body || "").replace(/^Vanta [\d.]+\s*\n+/i, "").trim()}`).join("\n\n")
+        : String(r.body || "");
+    return { tag: String(r.tag_name), name: String(r.name || r.tag_name), notes, url: String(r.html_url), download: asset?.browser_download_url as string | undefined };
 }
 
 export async function updaterCheck(root: string, version: string): Promise<UpdateCheck> {
     const info = await updaterInfo(root, version);
     if (info.mode === "release") {
         try {
-            const r = await latestRelease();
+            const r = await latestRelease(version);
             const newer = r && r.download && compareVersions(r.tag, version) > 0;
             return { ...info, updates: [], release: newer ? { tag: r.tag, name: r.name, notes: r.notes, url: r.url } : null };
         } catch (e: any) {
@@ -128,7 +141,7 @@ async function applyUpdate(root: string, version: string): Promise<{ ok: boolean
         const commit = (await git(root, "log", "-1", "--format=%h")).out;
         return { ok: true, output: "Updated and rebuilt. Restart Discord to finish.", version: `${readVersion(root, version)} (${commit})` };
     }
-    const r = await latestRelease();
+    const r = await latestRelease(version);
     if (!r?.download || compareVersions(r.tag, version) <= 0) return { ok: false, output: "No newer release found." };
     const res = await fetch(r.download, { redirect: "follow" });
     if (!res.ok) return { ok: false, output: `Download failed (HTTP ${res.status})` };

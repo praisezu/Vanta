@@ -56,12 +56,33 @@ async function finishWhenIdle(version: string, restart: boolean) {
     try { await finishPrompt(version, restart); } finally { finishing = false; }
 }
 
-async function finishPrompt(version: string, restart: boolean) {
-    const verb = restart ? "restart" : "refresh";
-    if (inVoiceCall()) {
-        ui.toast(`Vanta ${version} is installed. Discord will ${verb} when you leave the voice call.`, { ms: 8000 });
-        while (inVoiceCall()) await sleep(15000);
+/**
+ * A newer release came out while this one waited (for a voice call to end): install that too, so one refresh lands
+ * on the newest version with notes for everything in between.
+ */
+async function catchUp(version: string, restart: boolean) {
+    try {
+        const r = await native.updaterCheck();
+        if (!r.release) return { version, restart };
+        const res = await native.updaterApply();
+        if (!res.ok) return { version, restart };
+        const p = settings.vanta.pendingUpdate;
+        const to = res.version || r.release.tag.replace(/^v/i, "");
+        if (p) { p.to = to; if (r.release.notes) p.notes = r.release.notes; await saveSettingsNow(); }
+        return { version: to, restart: restart || res.restart !== false };
+    } catch (e) {
+        logger.warn("Couldn't check for a newer update before finishing", e);
+        return { version, restart };
     }
+}
+
+async function finishPrompt(version: string, restart: boolean) {
+    if (inVoiceCall()) {
+        ui.toast(`Vanta ${version} is installed. Discord will ${restart ? "restart" : "refresh"} when you leave the voice call.`, { ms: 8000 });
+        while (inVoiceCall()) await sleep(15000);
+        ({ version, restart } = await catchUp(version, restart));
+    }
+    const verb = restart ? "restart" : "refresh";
     let cancelled = false;
     const left = h("span", {}, "5");
     const t = ui.modal({
