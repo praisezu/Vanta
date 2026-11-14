@@ -2,6 +2,15 @@
 import { definePlugin, every, common, webpack, patcher, onFlux, watchElements, managedStyle, messageFromElement, storage, ui, h } from "@api";
 
 const VIEW_CHANNEL = 1n << 10n;
+/**
+ * Discord's channel hiding (its "2026-02-private-channel-hiding" experiment): when the app connects with this
+ * capability bit, Discord's servers send channels you can't see as "___hidden___" with their details blanked.
+ * The app saves the experiment's answer under FLAG_KEY so its fast startup connection can use it too.
+ */
+const OBFUSCATION_CAPABILITY = 1 << 15;
+const OBFUSCATED_CHANNEL = 1 << 17;
+const FLAG_KEY = "private_channel_obfuscation";
+const IDENTIFY = 2;
 const userName = (u: any) => u?.globalName || u?.global_name || u?.username || "Unknown";
 
 /* ---------------------------------------------------------- platform icons */
@@ -81,9 +90,61 @@ export default [
 
     definePlugin({
         name: "HiddenChannels",
-        description: "Shows how many channels and categories in a server you can't see, what kind they are and which category they're in. (Discord no longer shares their names or who can see them.)",
+        description: "Shows the channels and categories in a server that you can't see, with their names and topics (you still can't read their messages). Turns off Discord's channel hiding, the way Vencord's ShowHiddenChannels does.",
         authors: ["Vanta"], category: "Utility",
         needsWebpack: true,
+        options: {
+            realNames: { type: "boolean", default: true, label: "Show their real names", description: "Asks Discord not to blank them out (it reconnects once, never during a voice call). Off: they show as \"Hidden text channel 1\" and so on." },
+        },
+
+        /** Is Discord blanking hidden channels in this session? */
+        obfuscatedNow() {
+            for (const gid of Object.keys(common.GuildStore?.getGuilds?.() ?? {})) {
+                for (const c of Object.values<any>(common.ChannelStore?.getMutableGuildChannelsForGuild?.(gid) ?? {})) {
+                    if (c.name === "___hidden___" || ((c.flags ?? c.flags_ ?? 0) & OBFUSCATED_CHANNEL)) return true;
+                }
+            }
+            return false;
+        },
+
+        /** Connect without the hiding capability, and keep Discord from remembering it for the next start */
+        unhide() {
+            const offs: (() => void)[] = [];
+            // The saved flag the fast startup connection reads
+            const store = webpack.find((m: any) => typeof m?.w?.getAfterRefresh === "function" && typeof m?.w?.setRaw === "function")?.w;
+            if (store) {
+                try { store.remove(FLAG_KEY); } catch { }
+                const set = store.set;
+                store.set = function (key: string, ...rest: any[]) { return key === FLAG_KEY ? undefined : set.call(this, key, ...rest); };
+                offs.push(() => { if (store.set !== set) store.set = set; });
+            }
+            // Every (re)connection from now on
+            const sock = webpack.findStore("GatewayConnectionStore")?.getSocket?.();
+            if (sock && typeof sock.send === "function") {
+                const send = sock.send;
+                sock.send = (op: number, payload: any, ...rest: any[]) => {
+                    if (op === IDENTIFY && payload && typeof payload.capabilities === "number") {
+                        payload = { ...payload, capabilities: payload.capabilities & ~OBFUSCATION_CAPABILITY };
+                        // The one reconnect that swaps blanked channels for real ones: ask for every server in full
+                        if (this.fullResync) { this.fullResync = false; payload.client_state = { ...payload.client_state, guild_versions: {} }; }
+                    }
+                    return send(op, payload, ...rest);
+                };
+                offs.push(() => { if (sock.send !== send) sock.send = send; });
+            }
+            this.undoUnhide = () => offs.forEach(f => f());
+            // This session already came in blanked: reconnect once (Discord's normal reconnect, like after a network
+            // blip), but never in the middle of a voice call
+            this.resyncTimer = setInterval(() => {
+                if (this.resynced || !this.obfuscatedNow()) { clearInterval(this.resyncTimer); return; }
+                if (common.SelectedChannelStore?.getVoiceChannelId?.()) return;
+                const s = webpack.findStore("GatewayConnectionStore")?.getSocket?.();
+                if (!s?.isSessionEstablished?.()) return;
+                this.resynced = true;
+                this.fullResync = true;
+                s.close();
+            }, 5000);
+        },
         /** Channels and categories your roles can't see, in the order they appear */
         hidden(guildId: string) {
             const all = common.ChannelStore?.getMutableGuildChannelsForGuild?.(guildId) ?? {};
@@ -100,7 +161,7 @@ export default [
             // Grouped by category: visible categories by name, hidden ones numbered
             let hiddenCats = 0;
             const catLabel = new Map<string, string>();
-            for (const c of list.filter(c => c.type === 4)) catLabel.set(c.id, `Hidden category ${++hiddenCats}`);
+            for (const c of list.filter(c => c.type === 4)) { hiddenCats++; catLabel.set(c.id, realName(c) ?? `Hidden category ${hiddenCats}`); }
             const groups = new Map<string, any[]>();
             for (const c of list.filter(c => c.type !== 4)) {
                 const key = c.parent_id ?? "";
@@ -118,22 +179,28 @@ export default [
                         h("div", { class: "vanta-hidden-cat" }, hiddenCat ? "🔒 " + title : title),
                         chans.length ? ui.card({ class: "vanta-rows" }, chans.map(c => {
                             counter[c.type] = (counter[c.type] ?? 0) + 1;
-                            return ui.row({ title: `${icon[c.type] ?? "#"} ${realName(c) ?? `Hidden ${kind[c.type] ?? "channel"} ${counter[c.type]}`}` });
+                            return ui.row({ title: `${icon[c.type] ?? "#"} ${realName(c) ?? `Hidden ${kind[c.type] ?? "channel"} ${counter[c.type]}`}`, description: realName(c) && c.topic ? c.topic : null });
                         })) : h("div", { class: "vanta-row-desc" }, "Nothing else hidden in here."));
                 });
             const channels = list.filter(c => c.type !== 4).length;
             ui.modal({
                 title: `Hidden in this server: ${channels} channel${channels === 1 ? "" : "s"}${hiddenCats ? `, ${hiddenCats} categor${hiddenCats === 1 ? "y" : "ies"}` : ""}`,
                 body: [
-                    ui.note("", "Discord no longer sends anything about channels you can't see except that they exist, what kind they are and where they sit: their names, topics and who can see them all arrive blank. So no app can show more than this."),
+                    this.obfuscatedNow()
+                        ? ui.note("warn", this.settings.realNames
+                            ? (common.SelectedChannelStore?.getVoiceChannelId?.() ? "Real names load after a quick reconnect once you leave your voice call." : "Loading the real names… (a quick reconnect)")
+                            : "Discord is blanking these. Turn on \"Show their real names\" in this plugin's settings to see them.")
+                        : null,
                     h("div", { class: "vanta-hidden-list" }, sections),
                 ],
                 buttons: [{ text: "Close", variant: "primary" }],
             });
         },
+        onSettingChange(key: string) { if (key === "realNames") { this.stop(); this.start(); } },
         start() {
             this.Perms = webpack.findStore("PermissionStore");
             if (!this.Perms?.can) throw new Error("Discord's permission store wasn't found");
+            if (this.settings.realNames) this.unhide();
             this.style = managedStyle("vanta-hidden-channels");
             this.style.set(`.vanta-hidden-pill { all:unset; cursor:pointer; display:block; margin:8px 8px 12px; padding:6px 10px; border-radius:6px; font:600 12px var(--font-primary, sans-serif);
   color:var(--text-muted); background:var(--background-mod-subtle, rgba(150,150,160,.1)); text-align:center; }
@@ -153,7 +220,7 @@ export default [
                 if (this.pill.parentElement !== scroller) scroller.append(this.pill);
             }, 1500);
         },
-        stop() { clearInterval(this.timer); this.pill?.remove(); this.pill = null; this.style?.remove(); },
+        stop() { clearInterval(this.timer); clearInterval(this.resyncTimer); this.undoUnhide?.(); this.undoUnhide = null; this.pill?.remove(); this.pill = null; this.style?.remove(); },
     }),
 
     definePlugin({

@@ -4,6 +4,8 @@
  * The preload then runs the user's imported plugins, then calls Vanta.__boot().
  */
 import "./core/net"; // install request hooks as early as possible
+import { installGatewayHook } from "./gatewayHook";
+installGatewayHook(); // before Discord opens its connection (HiddenChannels' real names)
 
 import { common } from "./core/common";
 import { logger, makeLogger } from "./core/logger";

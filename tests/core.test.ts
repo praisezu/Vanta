@@ -46,3 +46,22 @@ test("smart search finds plugins by what they do", () => {
     assert.equal(rank(list, "see who deleted a message")[0]?.name, "MessageLogger");
     assert.equal(rank(list, "hide people's bios")[0]?.name, "HideStatuses");
 });
+
+// HiddenChannels' real names: the hiding bit is cleared from Discord's first connection message
+import { stripEtf, stripJson, OBFUSCATION_CAPABILITY } from "../src/renderer/gatewayHook";
+test("the channel-hiding capability is cleared from IDENTIFY", () => {
+    // ETF: ...<key "capabilities"><INTEGER_EXT 98><int32 BE>...
+    const key = new TextEncoder().encode("capabilities");
+    const mk = (n: number) => { const b = new Uint8Array(3 + key.length + 5 + 3); b.set([131, 116, 0], 0); b.set(key, 3); b[3 + key.length] = 98; new DataView(b.buffer).setInt32(4 + key.length, n); return b; };
+    const read = (b: Uint8Array) => new DataView(b.buffer).getInt32(4 + key.length);
+    const on = mk(1767421), off = mk(1734653);
+    assert.equal(stripEtf(on), true);
+    assert.equal(read(on), 1734653);
+    assert.equal(1767421 & ~OBFUSCATION_CAPABILITY, 1734653);
+    assert.equal(stripEtf(off), false, "already off: untouched");
+    assert.equal(read(off), 1734653);
+    assert.equal(stripEtf(new TextEncoder().encode("heartbeat")), false, "other messages untouched");
+    // JSON form
+    assert.equal(JSON.parse(stripJson(JSON.stringify({ op: 2, d: { capabilities: 1767421, token: "t" } }))).d.capabilities, 1734653);
+    assert.equal(stripJson('{"op":1,"d":5}'), '{"op":1,"d":5}');
+});
