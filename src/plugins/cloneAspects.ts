@@ -305,6 +305,11 @@ export default definePlugin({
         const makeItem = (template: HTMLElement) => {
             const item = template.cloneNode(true) as HTMLElement;
             item.removeAttribute("id");
+            // Never look greyed out, even if the item it was copied from was (like "Mark As Read" with nothing unread)
+            item.removeAttribute("aria-disabled");
+            for (const el of [item, ...item.querySelectorAll<HTMLElement>("*")]) {
+                for (const c of [...el.classList]) if (/^disabled_|^disabled$/i.test(c)) el.classList.remove(c);
+            }
             item.classList.add("vanta-clone-item");
             item.setAttribute("aria-label", label);
             const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT, { acceptNode: n => n.textContent!.trim() ? 1 : 3 });
@@ -321,7 +326,9 @@ export default definePlugin({
         };
         const inject = () => {
             if (!menu?.isConnected || menu.querySelector(".vanta-clone-item")) return;
-            const template = menu.querySelector<HTMLElement>('[role="menuitem"]');
+            const items = [...menu.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+            // Copy the look of a normal, enabled item: not a disabled one, a red one (Leave Server) or a checkbox
+            const template = items.find(i => i.getAttribute("aria-disabled") !== "true" && ![...i.classList].some(c => /^(disabled|colorDanger|danger)/i.test(c)) && !i.querySelector('[role="checkbox"], input')) ?? items[0];
             if (!template) return;
             (menu.querySelector('[role="group"]') ?? template.parentElement)?.prepend(makeItem(template));
         };
