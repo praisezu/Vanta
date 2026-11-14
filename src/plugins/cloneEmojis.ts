@@ -214,7 +214,8 @@ export default definePlugin({
         ids.set(guildId, 0);
         outRoles.push({ id: 0, permissions: everyone?.permissions ?? "0" });
         if (opts.roles) {
-            for (const r of [...roles].filter(r => r.id !== guildId && !r.managed).sort((a, b) => b.position - a.position)) {
+            // A new server stacks roles in the order given, from the bottom up: lowest first, so the top role stays on top
+            for (const r of [...roles].filter(r => r.id !== guildId && !r.managed).sort((a, b) => a.position - b.position || (BigInt(b.id) > BigInt(a.id) ? 1 : -1))) {
                 ids.set(r.id, next);
                 outRoles.push({ id: next++, name: r.name, color: r.color, hoist: r.hoist, mentionable: r.mentionable, permissions: r.permissions });
             }
@@ -290,44 +291,56 @@ export default definePlugin({
     },
 
     // ---------- the right-click menu ----------
-    /** Adds an item to the menu Discord opens, or shows a small menu of our own if it doesn't open one */
+    /**
+     * Adds an item to the menu Discord opens (watching for it for up to 1.5 s: the first menu after startup can be
+     * slow while Discord loads its menu code), and keeps it there if Discord redraws the menu. If Discord opens no
+     * menu at all here, a small one of our own appears.
+     */
     addMenuItem(label: string, run: () => void, x: number, y: number) {
+        this.cleanupMenu?.();
         const before = new Set(document.querySelectorAll('[role="menu"]'));
-        let tries = 0;
-        const go = () => { this.menuEl?.remove(); run(); };
-        const tick = () => {
-            const menu = [...document.querySelectorAll<HTMLElement>('[role="menu"]')].find(m => !before.has(m));
-            if (!menu && ++tries < 12) return void setTimeout(tick, 25);
-            if (menu) {
-                const template = menu.querySelector<HTMLElement>('[role="menuitem"]');
-                if (!template) return;
-                const item = template.cloneNode(true) as HTMLElement;
-                item.removeAttribute("id");
-                item.classList.add("vanta-clone-item");
-                const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT, { acceptNode: n => n.textContent!.trim() ? 1 : 3 });
-                const first = walker.nextNode();
-                if (first) first.textContent = label;
-                for (let n = walker.nextNode(); n; n = walker.nextNode()) n.textContent = "";
-                item.querySelectorAll("svg").forEach(s => s.remove());
-                item.addEventListener("click", e => {
-                    e.preventDefault(); e.stopPropagation();
-                    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true }));
-                    go();
-                }, true);
-                const group = menu.querySelector('[role="group"]');
-                (group ?? template.parentElement)?.prepend(item);
-                return;
-            }
-            // No menu from Discord here: our own little one
-            this.menuEl?.remove();
-            const own = h("div", { class: "vanta-clone-menu vanta-scope", role: "menu", style: { left: x + "px", top: y + "px" } },
+        const go = () => { this.cleanupMenu?.(); run(); };
+        let menu: HTMLElement | null = null;
+        const makeItem = (template: HTMLElement) => {
+            const item = template.cloneNode(true) as HTMLElement;
+            item.removeAttribute("id");
+            item.classList.add("vanta-clone-item");
+            item.setAttribute("aria-label", label);
+            const walker = document.createTreeWalker(item, NodeFilter.SHOW_TEXT, { acceptNode: n => n.textContent!.trim() ? 1 : 3 });
+            const first = walker.nextNode();
+            if (first) first.textContent = label;
+            for (let n = walker.nextNode(); n; n = walker.nextNode()) n.textContent = "";
+            item.querySelectorAll("svg").forEach(s => s.remove());
+            item.addEventListener("click", e => {
+                e.preventDefault(); e.stopPropagation();
+                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true }));
+                go();
+            }, true);
+            return item;
+        };
+        const inject = () => {
+            if (!menu?.isConnected || menu.querySelector(".vanta-clone-item")) return;
+            const template = menu.querySelector<HTMLElement>('[role="menuitem"]');
+            if (!template) return;
+            (menu.querySelector('[role="group"]') ?? template.parentElement)?.prepend(makeItem(template));
+        };
+        const own = () => {
+            const el = h("div", { class: "vanta-clone-menu vanta-scope", role: "menu", style: { left: x + "px", top: y + "px" } },
                 h("button", { type: "button", role: "menuitem", onclick: go }, label)) as HTMLElement;
-            document.body.append(own);
-            this.menuEl = own;
-            const away = (e: Event) => { if (!own.contains(e.target as Node)) { own.remove(); document.removeEventListener("mousedown", away, true); } };
+            document.body.append(el);
+            this.menuEl = el;
+            const away = (e: Event) => { if (!el.contains(e.target as Node)) { el.remove(); document.removeEventListener("mousedown", away, true); } };
             setTimeout(() => document.addEventListener("mousedown", away, true));
         };
-        tick();
+        const obs = new MutationObserver(() => {
+            if (!menu || !menu.isConnected) menu = [...document.querySelectorAll<HTMLElement>('[role="menu"]')].find(m => !before.has(m) && !m.classList.contains("vanta-clone-menu")) ?? null;
+            if (menu) { this.menuEl?.remove(); inject(); }
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+        const fallback = setTimeout(() => { if (!menu) own(); }, 350);
+        const stop = setTimeout(() => this.cleanupMenu?.(), 1500 + 30_000); // keep the item while the menu stays open
+        const giveUp = setTimeout(() => { if (!menu) { obs.disconnect(); } }, 1500);
+        this.cleanupMenu = () => { obs.disconnect(); clearTimeout(fallback); clearTimeout(stop); clearTimeout(giveUp); this.menuEl?.remove(); this.cleanupMenu = null; };
     },
 
     targetAt(el: Element | null): Target | null {
@@ -356,7 +369,8 @@ export default definePlugin({
 .vanta-clone-menu button { all: unset; display: block; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: var(--interactive-normal, #dbdee1); font-size: 14px; }
 .vanta-clone-menu button:hover { background: var(--brand-500, #5865f2); color: #fff; }`);
         this.onContext = (e: MouseEvent) => {
-            const t = this.targetAt(e.target as Element);
+            let t = this.targetAt(e.target as Element);
+            for (const el of t ? [] : document.elementsFromPoint(e.clientX, e.clientY).slice(0, 6)) { t = this.targetAt(el); if (t) break; }
             if (!t) return;
             if (t.kind === "emoji") this.addMenuItem("Clone emoji", () => this.cloneEmoji(t.emoji), e.clientX, e.clientY);
             else if (t.kind === "sticker") this.addMenuItem("Clone sticker", () => this.cloneSticker(t.sticker), e.clientX, e.clientY);
@@ -366,6 +380,7 @@ export default definePlugin({
     },
     stop() {
         document.removeEventListener("contextmenu", this.onContext, true);
+        this.cleanupMenu?.();
         this.menuEl?.remove();
         this.css?.remove();
     },

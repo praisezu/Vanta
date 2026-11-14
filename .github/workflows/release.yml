@@ -68,9 +68,10 @@ jobs:
       - name: Windows resources
         working-directory: installer
         run: |
-          V=${GITHUB_REF_NAME#v}; IFS=. read -r MA MI PA <<< "$V"
+          V=${GITHUB_REF_NAME#v}; IFS=. read -r MA MI PA BU <<< "$V"  # 0.6.8 or 0.6.8.1
           go run github.com/josephspurrier/goversioninfo/cmd/goversioninfo@v1.4.1 -64 -o rsrc_windows_amd64.syso \
-            -ver-major "$MA" -ver-minor "$MI" -ver-patch "$PA" -product-ver-major "$MA" -product-ver-minor "$MI" -product-ver-patch "$PA" \
+            -ver-major "$MA" -ver-minor "$MI" -ver-patch "$PA" -ver-build "${BU:-0}" \
+            -product-ver-major "$MA" -product-ver-minor "$MI" -product-ver-patch "$PA" -product-ver-build "${BU:-0}" \
             -file-version "$V" -product-version "$V" versioninfo.json
 
       - name: Build installers
