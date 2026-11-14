@@ -46,8 +46,8 @@ export function show(pageId = lastPage) {
 
     nav = h("nav", { class: "oq-side", "aria-label": "Vanta settings" },
         h("div", { class: "oq-brand" }, ui.logo(32), h("div", {}, h("b", {}, "Vanta"), h("span", {}, "v" + __VANTA_VERSION__))),
-        pages.map(p => h("button", { class: "oq-item", type: "button", "data-page": p.id, onclick: () => select(p.id) },
-            ui.icon(p.icon, 20), h("span", {}, p.label))),
+        ui.hubs().map(p => h("button", { class: "oq-item", type: "button", "data-page": p.id, onclick: () => select(p.id) },
+            ui.icon(p.icon, 20), h("span", {}, p.nav ?? p.label))),
         h("div", { class: "oq-foot" }, h("kbd", {}, "Ctrl"), "+", h("kbd", {}, "Shift"), "+", h("kbd", {}, "O"),
             " toggles this panel. Also in User Settings › Vanta Settings."),
     );
@@ -76,7 +76,7 @@ function select(pageId: string, state?: Record<string, any>) {
     controller = mountPage(pageId, scroll, { state: states[pageId] ??= {}, navigate: (to, s) => select(to, s) });
     scroll.scrollTop = 0;
     for (const b of nav.querySelectorAll<HTMLElement>(".oq-item"))
-        if (b.dataset.page === controller.page.id) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+        if (b.dataset.page === ui.hubOf(controller.page)) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
 }
 
 export function hide() {

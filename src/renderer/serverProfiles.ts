@@ -112,6 +112,7 @@ function editor(guildId: string, onChange: () => void) {
 ui.registerPage({
     id: "server-profiles",
     label: "Server profiles",
+    group: "themes",
     icon: "sliders",
     order: 3.5,
     keywords: ["profile", "per server", "server theme", "school", "different settings"],

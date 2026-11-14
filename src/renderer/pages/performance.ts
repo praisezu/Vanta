@@ -12,8 +12,9 @@ const fmt = (ms: number) => ms < 1 ? "<1 ms" : ms < 1000 ? `${Math.round(ms)} ms
 ui.registerPage({
     id: "performance",
     label: "Performance",
+    group: "plugins",
     icon: "power",
-    order: 2.2,
+    order: 2.45,
     keywords: ["speed", "lag", "cpu", "memory", "slow", "performance", "crash shield", "errors"],
     render() {
         const body = h("div", { style: { display: "contents" } });

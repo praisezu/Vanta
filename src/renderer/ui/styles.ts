@@ -10,6 +10,13 @@ export const CSS = `
   --o-r-sm:var(--radius-sm,8px); --o-r-md:var(--radius-md,12px);
   font-family:var(--font-primary,"gg sans","Segoe UI",sans-serif); color:var(--o-text); }
 .vanta-scope * { box-sizing:border-box; }
+/* Thin, see-through scrollbars everywhere in Vanta's UI (the browser's default one is a bright white bar) */
+.vanta-scope, .vanta-scope *, [data-vanta-scroll] { scrollbar-width:thin; scrollbar-color:rgba(150,150,160,.35) transparent; }
+.vanta-scope ::-webkit-scrollbar, [data-vanta-scroll]::-webkit-scrollbar { width:8px; height:8px; background:transparent; }
+.vanta-scope ::-webkit-scrollbar-thumb, [data-vanta-scroll]::-webkit-scrollbar-thumb { background:rgba(150,150,160,.35); border-radius:4px; }
+.vanta-scope ::-webkit-scrollbar-track, .vanta-scope ::-webkit-scrollbar-corner, [data-vanta-scroll]::-webkit-scrollbar-track { background:transparent; }
+/* Dark themes: dark dropdown lists, date pickers and the like inside Vanta too */
+:root:not(.theme-light) .vanta-scope, :root:not(.theme-light) [data-vanta-scroll] { color-scheme:dark; }
 .vanta-page { max-width:760px; margin:0 auto; padding:28px 24px 72px; display:flex; flex-direction:column; gap:28px; }
 .vanta-page-head h1 { margin:0; font-size:24px; line-height:30px; font-weight:700; color:var(--o-strong); }
 .vanta-page-head p { margin:6px 0 0; color:var(--o-muted); font-size:14px; line-height:20px; }
@@ -60,6 +67,7 @@ export const CSS = `
 .vanta-chip:hover { color:var(--o-text); }
 .vanta-chip[aria-pressed=true] { background:var(--o-hover); color:var(--o-strong); }
 .vanta-tabs { display:flex; gap:4px; border-bottom:1px solid var(--o-line); }
+.vanta-page-tabs { max-width:760px; margin:20px auto -12px; padding:0 24px; }
 .vanta-tab { all:unset; cursor:pointer; padding:10px 12px; margin-bottom:-1px; font-size:14px; font-weight:600; color:var(--o-muted);
   border-bottom:2px solid transparent; }
 .vanta-tab:hover { color:var(--o-text); }

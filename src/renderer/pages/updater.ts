@@ -14,6 +14,7 @@ interface State {
 ui.registerPage({
     id: "updater",
     label: "Updater",
+    nav: "Updates",
     icon: "updater",
     order: 4,
     keywords: ["update", "version", "release"],

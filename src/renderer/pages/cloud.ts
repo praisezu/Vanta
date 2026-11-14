@@ -53,6 +53,7 @@ window.addEventListener("vanta:settings-saved", () => {
 ui.registerPage({
     id: "cloud",
     label: "Cloud Sync",
+    group: "backup",
     icon: "cloud",
     order: 5.5,
     keywords: ["sync", "gist", "github", "cloud"],

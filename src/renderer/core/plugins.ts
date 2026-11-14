@@ -31,6 +31,8 @@ export interface PluginDef {
     needsWebpack?: boolean;
     /** Toggling needs a reload instead of start()/stop() */
     restartNeeded?: boolean;
+    /** Why this plugin is risky (it does things the normal Discord app wouldn't). Shows a "Risky" tag and asks before turning it on. */
+    risky?: string;
     options?: Record<string, PluginOption>;
     start?(): void | Promise<void>;
     stop?(): void | Promise<void>;

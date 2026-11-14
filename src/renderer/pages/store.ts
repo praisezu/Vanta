@@ -87,8 +87,10 @@ async function installFromStore(p: StorePlugin, existingFile?: string) {
 ui.registerPage({
     id: "store",
     label: "Plugin Store",
+    group: "plugins",
+    tab: "Store",
     icon: "store",
-    order: 2.5,
+    order: 2.1,
     keywords: ["store", "download", "community", "marketplace"],
     render(ctx) {
         const st = ctx.state;

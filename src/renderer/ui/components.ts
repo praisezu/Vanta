@@ -290,8 +290,21 @@ export interface Page {
     icon: string;
     order?: number;
     keywords?: string[];
+    /** Shown as a tab inside another page's sidebar entry (that page's id) instead of getting its own entry */
+    group?: string;
+    /** Its name on the tab row (default: label) */
+    tab?: string;
+    /** Its name in the sidebar when it heads a group (default: label) */
+    nav?: string;
     render(ctx: PageContext): Node;
 }
+
+/** The sidebar entry a page lives under */
+export const hubOf = (p: Page) => p.group ?? p.id;
+/** One entry per sidebar item: pages that aren't tabs of another */
+export const hubs = () => pages.filter(p => !p.group);
+/** The pages shown as tabs under a sidebar entry, in order */
+export const groupOf = (hubId: string) => pages.filter(p => hubOf(p) === hubId);
 
 export const pages: Page[] = [];
 
@@ -306,12 +319,18 @@ export function mountPage(id: string, container: HTMLElement, { navigate, state 
     const page = pages.find(p => p.id === id) || pages[0];
     const disposers: (() => void)[] = [];
     const dispose = () => { for (const d of disposers.splice(0)) { try { d(); } catch { } } };
+    const group = groupOf(hubOf(page));
     const render = () => {
         let content: Node;
         try { content = page.render(ctx); }
         catch (e: any) {
             logger.error(`Page ${page.id} failed to render`, e);
             content = h("div", { class: "vanta-page" }, note("danger", `This page crashed: ${e.message}`));
+        }
+        // Pages that share a sidebar entry switch with tabs at the top
+        if (group.length > 1) {
+            const bar = h("div", { class: "vanta-page-tabs" }, tabs(group.map(p => [p.id, p.tab ?? p.label]), page.id, id => { if (id !== page.id) navigate?.(id); }));
+            content = h("div", {}, bar, content);
         }
         container.replaceChildren(content);
     };
@@ -336,5 +355,5 @@ export const ui = {
     h, icon, logo, ensureStyle,
     switch: switchEl, button, pageHead, section, card, row, settingRow, searchInput, segment, tabs, empty, note, tag,
     modal, confirm, toast,
-    pages, registerPage, mountPage,
+    pages, registerPage, mountPage, hubs, hubOf, groupOf,
 };

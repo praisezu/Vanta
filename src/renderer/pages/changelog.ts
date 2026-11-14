@@ -32,6 +32,8 @@ function notes(text: string) {
 ui.registerPage({
     id: "changelog",
     label: "Update log",
+    group: "updater",
+    tab: "What's new",
     icon: "info",
     order: 4.5,
     keywords: ["changelog", "update log", "what's new", "whats new", "release notes", "history", "version"],

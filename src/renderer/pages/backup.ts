@@ -51,6 +51,8 @@ function showRestore(data: BackupData) {
 ui.registerPage({
     id: "backup",
     label: "Backup & Restore",
+    nav: "Backup & Sync",
+    tab: "Backup",
     icon: "backup",
     order: 5,
     keywords: ["export", "import", "reset"],

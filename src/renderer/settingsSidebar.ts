@@ -7,7 +7,7 @@
  */
 import { logger } from "./core/logger";
 import { onDomReady, sleep } from "./core/utils";
-import { ui, pages, mountPage } from "./ui/components";
+import { ui, pages, mountPage, hubs, hubOf, groupOf } from "./ui/components";
 
 const SECTION_ATTR = "data-vanta-section";
 const pageStates: Record<string, Record<string, any>> = {};
@@ -62,7 +62,7 @@ function inject(nav: HTMLElement) {
         section.append(label);
     }
     const list = listTemplate.cloneNode(false) as HTMLElement;
-    for (const page of pages) list.append(makeItem(template, page));
+    for (const page of hubs()) list.append(makeItem(template, page));
     section.append(list);
     first.after(section);
     hookSearch(nav);
@@ -84,7 +84,7 @@ function makeItem(template: HTMLElement, page: (typeof pages)[number]) {
         ic.setAttribute("class", svg.getAttribute("class") || "");
         svg.replaceWith(ic);
     }
-    textLeaf(link).textContent = page.label;
+    textLeaf(link).textContent = page.nav ?? page.label;
     const go = (e: Event) => { e.preventDefault(); e.stopPropagation(); open(page.id); };
     link.addEventListener("click", go);
     link.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") go(e); });
@@ -102,8 +102,8 @@ function hookSearch(nav: HTMLElement) {
         const term = input.value.trim().toLowerCase();
         let shown = 0;
         for (const li of section.querySelectorAll<HTMLElement>("[data-vanta-page]")) {
-            const page = pages.find(p => p.id === li.dataset.vantaPage)!;
-            const match = !term || [page.label, "vanta", ...(page.keywords || [])].join(" ").toLowerCase().includes(term);
+            const words = groupOf(li.dataset.vantaPage!).flatMap(p => [p.label, p.nav ?? "", p.tab ?? "", ...(p.keywords || [])]);
+            const match = !term || ["vanta", ...words].join(" ").toLowerCase().includes(term);
             li.style.display = match ? "" : "none";
             if (match) shown++;
         }
@@ -173,13 +173,14 @@ export function open(pageId: string, state?: Record<string, any>): boolean {
     current.controller = mountPage(pageId, current.mount, { state: pageStates[pageId] ??= {}, navigate: (to, s) => open(to, s) });
     current.scroller.scrollTop = 0;
     const page = current.controller.page;
-    if (current.crumbClone) textLeaf(current.crumbClone).textContent = page.label;
+    const hub = pages.find(p => p.id === hubOf(page)) ?? page;
+    if (current.crumbClone) textLeaf(current.crumbClone).textContent = hub.nav ?? hub.label;
 
     for (const li of nav.querySelectorAll<HTMLElement>("[data-vanta-page]")) {
         const link = q(li, '[role="link"]');
         if (!link) continue;
         const cls = activeClassFor(link);
-        const on = li.dataset.vantaPage === page.id;
+        const on = li.dataset.vantaPage === hub.id;
         if (cls) link.classList.toggle(cls, on);
         if (on) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
     }

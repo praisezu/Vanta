@@ -44,6 +44,8 @@ function apiMembers(): string[] {
 ui.registerPage({
     id: "editor",
     label: "Plugin editor",
+    group: "plugins",
+    tab: "Editor",
     icon: "code",
     order: 2.4,
     keywords: ["editor", "code", "write plugin", "develop", "make a plugin", "live"],

@@ -9,6 +9,7 @@ import { rank, askCapri } from "../smartSearch";
 ui.registerPage({
     id: "plugins",
     label: "Plugins",
+    tab: "Installed",
     icon: "plugins",
     order: 2,
     keywords: ["import", "install", "extensions"],
@@ -138,6 +139,7 @@ function pluginCard(p: PluginInstance, rerender: () => void, q = "") {
     if (p.file) tags.push(ui.tag("Imported", "ok", p.file));
     if (p.error) tags.push(ui.tag("Error", "danger", p.error));
     if (p.restartNeeded) tags.push(ui.tag("Restart", "warn", "Turning this on or off needs a Discord restart"));
+    if (p.risky) tags.push(ui.tag("Risky", "danger", p.risky));
     if (p.needsWebpack) tags.push(ui.tag("Internals", "", "Hooks into Discord's code. May break after Discord updates."));
 
     return ui.card({ class: "vanta-item" + (on ? " on" : "") },
@@ -146,6 +148,11 @@ function pluginCard(p: PluginInstance, rerender: () => void, q = "") {
             ui.switch({
                 checked: on, label: `Enable ${p.name}`,
                 onChange: async v => {
+                    if (v && p.risky && !await ui.confirm({
+                        title: `Turn on ${p.name}?`,
+                        body: h("div", {}, h("p", { style: { margin: "0 0 8px" } }, "This plugin is marked risky:"), h("p", { style: { margin: 0 } }, p.risky)),
+                        confirmText: "Turn on anyway", danger: true,
+                    })) { rerender(); return; }
                     await setPluginEnabled(p.name, v);
                     if (v) firstRun(p);
                     if (p.restartNeeded) await promptRestart(p.name, v);

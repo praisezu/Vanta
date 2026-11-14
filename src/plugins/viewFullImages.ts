@@ -1,5 +1,27 @@
 import { definePlugin, native } from "@api";
 
+/** Best full-resolution URL for a Discord CDN image, or null if it isn't one. */
+export function fullImageUrl(src: string): string | null {
+    let u: URL;
+    try { u = new URL(src, location.href); } catch { return null; }
+    if (u.hostname === "media.discordapp.net" && u.pathname.startsWith("/attachments/")) {
+        // Proxied attachment preview → the original upload (keep the signed ex/is/hm params)
+        const out = new URL("https://cdn.discordapp.com" + u.pathname);
+        for (const k of ["ex", "is", "hm"]) if (u.searchParams.has(k)) out.searchParams.set(k, u.searchParams.get(k)!);
+        return out.href;
+    }
+    if (!/^(cdn\.discordapp\.com|media\.discordapp\.net)$/.test(u.hostname)) return null;
+    if (!/^\/(avatars|icons|banners|emojis|app-icons|role-icons|guilds|splashes|discovery-splashes|avatar-decoration-presets|clan-badges|stickers)\//.test(u.pathname)) return null;
+    const animated = /\/a_[0-9a-f]+\.\w+$/.test(u.pathname) || u.searchParams.get("animated") === "true";
+    u.hostname = "cdn.discordapp.com";
+    u.search = "";
+    if (!u.pathname.startsWith("/stickers/")) u.searchParams.set("size", "4096");
+    if (animated) u.pathname = u.pathname.replace(/\.(webp|png|jpg)$/, ".gif");
+    else if (/\.webp$/.test(u.pathname)) u.pathname = u.pathname.replace(/\.webp$/, ".png");
+    return u.href;
+}
+
+
 export default definePlugin({
     name: "ViewFullImages",
     description: "Ctrl+click any avatar, server icon, emoji, banner or image to open it at full size in your browser.",
@@ -12,26 +34,7 @@ export default definePlugin({
         },
     },
 
-    /** Best full-resolution URL for a Discord CDN image, or null if it isn't one. */
-    fullUrl(src) {
-        let u;
-        try { u = new URL(src, location.href); } catch { return null; }
-        if (u.hostname === "media.discordapp.net" && u.pathname.startsWith("/attachments/")) {
-            // Proxied attachment preview → the original upload (keep the signed ex/is/hm params)
-            const out = new URL("https://cdn.discordapp.com" + u.pathname);
-            for (const k of ["ex", "is", "hm"]) if (u.searchParams.has(k)) out.searchParams.set(k, u.searchParams.get(k));
-            return out.href;
-        }
-        if (!/^(cdn\.discordapp\.com|media\.discordapp\.net)$/.test(u.hostname)) return null;
-        if (!/^\/(avatars|icons|banners|emojis|app-icons|role-icons|guilds|splashes|discovery-splashes|avatar-decoration-presets|clan-badges|stickers)\//.test(u.pathname)) return null;
-        const animated = /\/a_[0-9a-f]+\.\w+$/.test(u.pathname) || u.searchParams.get("animated") === "true";
-        u.hostname = "cdn.discordapp.com";
-        u.search = "";
-        if (!u.pathname.startsWith("/stickers/")) u.searchParams.set("size", "4096");
-        if (animated) u.pathname = u.pathname.replace(/\.(webp|png|jpg)$/, ".gif");
-        else if (/\.webp$/.test(u.pathname)) u.pathname = u.pathname.replace(/\.webp$/, ".png");
-        return u.href;
-    },
+    fullUrl(src) { return fullImageUrl(src); },
 
     findImage(target) {
         const img = target.closest?.("img") || target.querySelector?.(":scope > img");
