@@ -81,27 +81,52 @@ export default [
 
     definePlugin({
         name: "HiddenChannels",
-        description: "Shows which channels in a server you can't see (names, categories and topics), in a read-only list.",
+        description: "Shows how many channels and categories in a server you can't see, what kind they are and which category they're in. (Discord no longer shares their names or who can see them.)",
         authors: ["Vanta"], category: "Utility",
         needsWebpack: true,
+        /** Channels and categories your roles can't see, in the order they appear */
         hidden(guildId: string) {
             const all = common.ChannelStore?.getMutableGuildChannelsForGuild?.(guildId) ?? {};
             return Object.values<any>(all)
-                .filter(c => [0, 2, 5, 13, 15, 16].includes(c.type) && !this.Perms.can(VIEW_CHANNEL, c))
+                .filter(c => [0, 2, 4, 5, 13, 15, 16].includes(c.type) && !this.Perms.can(VIEW_CHANNEL, c))
                 .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
         },
         open(guildId: string) {
             const list = this.hidden(guildId);
             const all = common.ChannelStore?.getMutableGuildChannelsForGuild?.(guildId) ?? {};
-            const typeName: Record<number, string> = { 0: "#", 2: "🔊", 5: "📢", 13: "🎙", 15: "💬", 16: "🖼" };
+            const kind: Record<number, string> = { 0: "text channel", 2: "voice channel", 4: "category", 5: "announcement channel", 13: "stage", 15: "forum", 16: "media channel" };
+            const icon: Record<number, string> = { 0: "#", 2: "🔊", 4: "📁", 5: "📢", 13: "🎙", 15: "💬", 16: "🖼" };
+            const realName = (c: any) => c?.name && c.name !== "___hidden___" ? c.name : null;
+            // Grouped by category: visible categories by name, hidden ones numbered
+            let hiddenCats = 0;
+            const catLabel = new Map<string, string>();
+            for (const c of list.filter(c => c.type === 4)) catLabel.set(c.id, `Hidden category ${++hiddenCats}`);
+            const groups = new Map<string, any[]>();
+            for (const c of list.filter(c => c.type !== 4)) {
+                const key = c.parent_id ?? "";
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key)!.push(c);
+            }
+            for (const cat of list.filter(c => c.type === 4)) if (!groups.has(cat.id)) groups.set(cat.id, []);
+            const counter: Record<number, number> = {};
+            const sections = [...groups.entries()]
+                .sort(([a], [b]) => (all[a]?.position ?? -1) - (all[b]?.position ?? -1))
+                .map(([catId, chans]) => {
+                    const hiddenCat = !!catId && catLabel.has(catId);
+                    const title = !catId ? "No category" : catLabel.get(catId) ?? realName(all[catId]) ?? "A category";
+                    return h("div", { class: "vanta-hidden-group" },
+                        h("div", { class: "vanta-hidden-cat" }, hiddenCat ? "🔒 " + title : title),
+                        chans.length ? ui.card({ class: "vanta-rows" }, chans.map(c => {
+                            counter[c.type] = (counter[c.type] ?? 0) + 1;
+                            return ui.row({ title: `${icon[c.type] ?? "#"} ${realName(c) ?? `Hidden ${kind[c.type] ?? "channel"} ${counter[c.type]}`}` });
+                        })) : h("div", { class: "vanta-row-desc" }, "Nothing else hidden in here."));
+                });
+            const channels = list.filter(c => c.type !== 4).length;
             ui.modal({
-                title: `Hidden channels (${list.length})`,
+                title: `Hidden in this server: ${channels} channel${channels === 1 ? "" : "s"}${hiddenCats ? `, ${hiddenCats} categor${hiddenCats === 1 ? "y" : "ies"}` : ""}`,
                 body: [
-                    h("div", { class: "vanta-row-desc" }, "Channels in this server that your roles can't see. You can read their names and topics, not their messages."),
-                    ui.card({ class: "vanta-rows", style: { maxHeight: "420px", overflow: "auto" } }, list.map(c => ui.row({
-                        title: `${typeName[c.type] ?? "#"} ${c.name}`,
-                        description: [c.parent_id && all[c.parent_id]?.name ? `in ${all[c.parent_id].name}` : null, c.topic].filter(Boolean).join(" · ") || null,
-                    }))),
+                    ui.note("", "Discord no longer sends anything about channels you can't see except that they exist, what kind they are and where they sit: their names, topics and who can see them all arrive blank. So no app can show more than this."),
+                    h("div", { class: "vanta-hidden-list" }, sections),
                 ],
                 buttons: [{ text: "Close", variant: "primary" }],
             });
@@ -112,12 +137,15 @@ export default [
             this.style = managedStyle("vanta-hidden-channels");
             this.style.set(`.vanta-hidden-pill { all:unset; cursor:pointer; display:block; margin:8px 8px 12px; padding:6px 10px; border-radius:6px; font:600 12px var(--font-primary, sans-serif);
   color:var(--text-muted); background:var(--background-mod-subtle, rgba(150,150,160,.1)); text-align:center; }
-.vanta-hidden-pill:hover { color:var(--text-default); background:var(--background-mod-normal, rgba(150,150,160,.16)); }`);
+.vanta-hidden-pill:hover { color:var(--text-default); background:var(--background-mod-normal, rgba(150,150,160,.16)); }
+.vanta-hidden-list { display:flex; flex-direction:column; gap:14px; max-height:440px; overflow:auto; margin-top:12px; }
+.vanta-hidden-cat { font-size:12px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin:0 0 6px 2px; }
+.vanta-hidden-cat span { text-transform:none; font-weight:500; }`);
             this.timer = every(() => {
                 const gid = common.SelectedGuildStore?.getGuildId?.();
                 const nav = document.querySelector<HTMLElement>('nav[aria-label$="(server)"]');
                 if (!gid || !nav) { this.pill?.remove(); return; }
-                const n = this.hidden(gid).length;
+                const n = this.hidden(gid).filter((c: any) => c.type !== 4).length;
                 if (!n) { this.pill?.remove(); return; }
                 this.pill ??= h("button", { class: "vanta-hidden-pill", type: "button", onclick: () => this.open(common.SelectedGuildStore.getGuildId()) });
                 this.pill.textContent = `🔒 ${n} hidden channel${n === 1 ? "" : "s"}`;

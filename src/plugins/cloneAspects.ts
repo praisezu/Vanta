@@ -202,11 +202,30 @@ export default definePlugin({
 
     // ---------- servers ----------
     /** A new server's create request copied from an existing one: roles, categories, channels, permissions and icon */
-    async serverTemplate(guildId: string, opts: { roles: boolean; channels: boolean; icon: boolean }) {
+    async serverTemplate(guildId: string, opts: { roles: boolean; channels: boolean; icon: boolean; hidden?: boolean }) {
         const api = discord.api();
         const g = common.GuildStore?.getGuild?.(guildId);
         const roles: any[] = opts.roles || opts.channels ? (await api.get({ url: `/guilds/${guildId}/roles` })).body : [];
         const channels: any[] = opts.channels ? (await api.get({ url: `/guilds/${guildId}/channels` })).body : [];
+        // Channels you can't see aren't in that list, and Discord doesn't share their names: copy them from what it does
+        // share (kind, place, category, role permissions) under numbered placeholder names
+        if (opts.channels && opts.hidden) {
+            const known = new Set(channels.map(c => c.id));
+            const store = Object.values<any>(common.ChannelStore?.getMutableGuildChannelsForGuild?.(guildId) ?? {})
+                .filter(c => !known.has(c.id) && c.type in CHANNEL_TYPE)
+                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+            const n: Record<number, number> = {};
+            const word: Record<number, string> = { 0: "text", 2: "voice", 4: "category", 5: "news", 13: "stage", 15: "forum", 16: "media" };
+            for (const c of store) {
+                n[c.type] = (n[c.type] ?? 0) + 1;
+                channels.push({
+                    id: c.id, type: c.type, position: c.position ?? 0, parent_id: c.parent_id ?? null,
+                    name: c.name && c.name !== "___hidden___" ? c.name : `hidden-${word[c.type] ?? "channel"}-${n[c.type]}`,
+                    nsfw: !!c.nsfw,
+                    permission_overwrites: Object.values<any>(c.permissionOverwrites ?? {}).map(o => ({ id: o.id, type: o.type, allow: String(o.allow ?? 0), deny: String(o.deny ?? 0) })),
+                });
+            }
+        }
         // New servers take placeholder ids (small numbers) that link roles to overwrites and channels to categories
         const ids = new Map<string, number>();
         let next = 1;
@@ -260,6 +279,9 @@ export default definePlugin({
             return { box, row: h("label", { class: "vanta-clone-check" }, box, h("span", {}, label)) };
         };
         const roles = check("Roles and their permissions"), channels = check("Categories, channels and their permissions"), icon = check("Server icon");
+        const hiddenCount = Object.values<any>(common.ChannelStore?.getMutableGuildChannelsForGuild?.(guildId) ?? {}).filter(c => c.name === "___hidden___").length;
+        const hidden = check(`Channels you can't see (${hiddenCount}): copied as private hidden-text-1, hidden-voice-1… since Discord doesn't share their names or who can see them`, hiddenCount > 0);
+        if (!hiddenCount) hidden.row.style.display = "none";
         const err = h("div", { class: "vanta-clone-err" });
         ui.modal({
             title: "Clone server",
@@ -267,7 +289,7 @@ export default definePlugin({
                 g.icon ? h("img", { src: `https://cdn.discordapp.com/icons/${guildId}/${g.icon}.webp?size=96`, alt: "", class: "vanta-clone-img round" }) : null,
                 h("p", { class: "vanta-clone-note" }, `Makes a new server owned by you, copied from ${g.name}. Messages, members, emoji, bots and webhooks aren't copied.`),
                 h("label", {}, h("span", {}, "New server name"), nameIn),
-                roles.row, channels.row, icon.row,
+                roles.row, channels.row, hidden.row, icon.row,
                 err),
             buttons: [
                 { text: "Cancel", variant: "ghost" },
@@ -277,7 +299,7 @@ export default definePlugin({
                         if (name.length < 2) { err.textContent = "The name needs at least 2 characters."; return false; }
                         err.textContent = "Copying…";
                         try {
-                            const t = await this.serverTemplate(guildId, { roles: roles.box.checked, channels: channels.box.checked, icon: icon.box.checked });
+                            const t = await this.serverTemplate(guildId, { roles: roles.box.checked, channels: channels.box.checked, icon: icon.box.checked, hidden: hidden.box.checked });
                             let made: any;
                             try {
                                 made = (await discord.api().post({ url: "/guilds", body: { name, icon: t.icon, roles: t.roles, channels: t.channels, system_channel_id: undefined } })).body;
