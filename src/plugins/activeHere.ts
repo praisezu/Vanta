@@ -7,12 +7,13 @@ const msgTime = (m: any) => Number(m?.timestamp?.valueOf?.() ?? Date.parse(m?.ti
 
 function ago(ms: number) {
     const m = Math.round(ms / 60000);
-    return m < 1 ? "just now" : m === 1 ? "1 min ago" : `${m} min ago`;
+    return m < 1 ? "active just now" : m === 1 ? "active 1 min ago" : `active ${m} min ago`;
 }
 
 export default definePlugin({
-    name: "WhosHere",
-    description: "Shows who's active in the channel you're in right now, under the message box: people typing, and people who just sent a message. Hover a face for their name. (Discord never shares who only has a channel open, so silent readers can't be shown.)",
+    name: "ActiveHere",
+    formerNames: ["WhosHere"],
+    description: "Shows who's active in the channel you're in, under the message box: people typing now, and people who sent a message in the last couple of minutes. Hover a face for their name. (Discord never shares who just has a channel open, so this shows activity, not viewers.)",
     authors: ["Vanta"],
     category: "Chat",
     since: "0.6.8",
@@ -62,7 +63,8 @@ export default definePlugin({
         if (!this.el) {
             this.el = document.createElement("div");
             this.el.className = "vanta-whos-here";
-            this.el.setAttribute("aria-label", "Who's here");
+            this.el.title = "";
+            this.el.setAttribute("aria-label", "Active here");
         }
         if (this.el.parentElement !== form) {
             if (getComputedStyle(form).position === "static") form.style.position = "relative";
@@ -89,7 +91,7 @@ export default definePlugin({
                 avatar: u?.getAvatarURL?.(guildId, 64) ?? img.src,
                 display: nick || u?.globalName || u?.username || "Someone",
                 username: u ? (u.discriminator && u.discriminator !== "0" ? `${u.username}#${u.discriminator}` : `@${u.username}`) : "",
-                doing: (p.typing ? "typing…" : "chatted " + ago(now - p.at)) + (status ? " · " + status : ""),
+                doing: (p.typing ? "typing now" : ago(now - p.at)) + (status ? " · " + status : ""),
                 ring: STATUS_COLOR[p.status] ?? STATUS_COLOR.offline,
             });
             face.setAttribute("aria-label", this.cards.get(p.id).display);
