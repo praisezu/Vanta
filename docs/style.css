@@ -103,40 +103,17 @@ img.px-img { image-rendering: pixelated; }
 .meta a { color: var(--muted); text-decoration: none; }
 .meta a:hover { color: var(--v-hi); }
 
-/* Settings window mock */
-.stage { max-width: 900px; margin: 72px auto 0; text-align: left; }
-.window { --f: rgba(10, 7, 17, .8); }
-.titlebar { display: flex; align-items: center; gap: 10px; padding: 14px 18px 12px; border-bottom: var(--p) solid var(--line); font: 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .1em; }
-.titlebar i { width: 9px; height: 9px; background: var(--line-hi); }
-.titlebar i:first-child { background: var(--v); }
-.titlebar span { margin-left: 8px; }
-.wbody { display: grid; grid-template-columns: 190px 1fr; }
-.wside { padding: 16px 10px; border-right: var(--p) solid var(--line); }
-.wside div { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font: 500 14px var(--sans); color: var(--muted); }
-.wside div.on { color: #0b0812; background: var(--v-hi); }
-.wside img { width: 18px; height: 18px; image-rendering: pixelated; }
-.wside s { width: 12px; height: 12px; background: currentColor; opacity: .35; text-decoration: none; }
-.wpane { padding: 18px 20px 22px; }
-.wpane .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 12px; }
-.wpane .top b { font: 600 18px var(--pixel); letter-spacing: .03em; }
-.wpane .top span { font: 12px var(--mono); color: var(--dim); }
-.rows { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; --f: rgba(255, 255, 255, .025); --b: rgba(212, 198, 255, .12); }
-.row div { flex: 1; min-width: 0; }
-.row b { display: block; font-size: 14px; font-weight: 600; }
-.row span { display: block; font-size: 12.5px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tog { flex: none; width: 36px; height: 18px; background: rgba(255, 255, 255, .12); position: relative; }
-.tog::after { content: ""; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; background: var(--muted); transition: transform .24s steps(4), background .24s steps(1); }
-.tog.on { background: var(--v-deep); }
-.tog.on::after { transform: translateX(18px); background: var(--v-hi); }
-
-/* ---------- Ticker ---------- */
-.ticker { margin-top: 88px; border-top: var(--p) solid var(--line); border-bottom: var(--p) solid var(--line); background: rgba(10, 7, 17, .6); overflow: hidden; }
-.ticker .track { display: flex; width: max-content; animation: tick 90s linear infinite; }
-.ticker:hover .track { animation-play-state: paused; }
-.ticker span { padding: 14px 22px; font: 500 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; }
-.ticker span::before { content: "■ "; color: var(--v); font-size: 9px; vertical-align: 2px; }
-@keyframes tick { to { transform: translateX(-50%); } }
+/* ---------- Plugin finder (home) ---------- */
+.finder { padding: 96px 0 10px; }
+.finder-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap; margin-bottom: 22px; }
+.finder-head .h2 { margin: 0; }
+.finder-head p { margin: 0; color: var(--muted); max-width: 380px; }
+.finder .search { margin-bottom: 14px; }
+.finder .grid { min-height: 200px; }
+.more { margin: 18px 0 0; font: 13px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.more a { color: var(--v-hi); text-decoration: none; }
+.more a:hover { color: #fff; }
+.empty a { color: var(--v-hi); }
 
 /* ---------- Spec grid ---------- */
 .block { padding: 110px 0 30px; }
@@ -151,8 +128,13 @@ img.px-img { image-rendering: pixelated; }
 .spec p { margin: 0; color: var(--muted); font-size: 15px; }
 .spec.wide { grid-column: span 2; }
 
-.final { position: relative; text-align: center; padding: 120px 0 110px; }
-.final .h2 { margin: 0 auto 30px; }
+.final { position: relative; padding: 110px 0 100px; }
+.installs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.install { padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+.install h3 { margin: 0; font: 600 20px var(--pixel); letter-spacing: .03em; }
+.install p { margin: 0; color: var(--muted); }
+.install .btn { align-self: flex-start; margin-top: auto; }
+.fine { margin: 22px 0 0; color: var(--dim); font-size: 14.5px; max-width: 640px; }
 
 /* ---------- Inner pages ---------- */
 .page-head { position: relative; padding: 70px 0 34px; }
@@ -223,8 +205,7 @@ footer a:hover { color: var(--v-hi); }
   .specs { grid-template-columns: 1fr 1fr; }
   .spec.wide { grid-column: 1 / -1; }
   .os { grid-template-columns: 1fr; }
-  .wbody { grid-template-columns: 1fr; }
-  .wside { display: none; }
+  .installs { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
   .wrap { padding: 0 16px; }
@@ -236,8 +217,6 @@ footer a:hover { color: var(--v-hi); }
   .hero { padding-top: 44px; }
   .logo-big { width: 120px; height: 120px; }
   .cta .btn { flex: 1 1 100%; }
-  .rows { grid-template-columns: 1fr; }
-  .rows .row:nth-child(n+5) { display: none; }
   .specs { grid-template-columns: 1fr; }
   .spec { min-height: 0; }
   .spec h3 { margin-top: 18px; }

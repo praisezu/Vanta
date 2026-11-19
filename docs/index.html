@@ -29,36 +29,21 @@
       </div>
       <p class="meta in" style="--d:4"><a data-link="release" href="#">v<span data-version>0.5</span> · What's new ▸</a> &nbsp;·&nbsp; Windows · macOS · Linux &nbsp;·&nbsp; Open source<span id="community" hidden></span></p>
 
-      <div class="stage in" style="--d:5" aria-hidden="true">
-        <div class="window px">
-          <div class="titlebar"><i></i><i></i><i></i><span>Settings ▸ Vanta</span></div>
-          <div class="wbody">
-            <div class="wside">
-              <div><img src="/logo.png" alt="">Vanta</div>
-              <div class="on"><s></s>Plugins</div>
-              <div><s></s>Themes</div>
-              <div><s></s>Plugin Store</div>
-              <div><s></s>Cloud Sync</div>
-              <div><s></s>Updater</div>
-            </div>
-            <div class="wpane">
-              <div class="top"><b>Plugins</b><span><span data-count>123</span> built in</span></div>
-              <div class="rows">
-                <div class="row px"><div><b>MessageLogger</b><span>Keeps deleted messages in chat</span></div><i class="tog"></i></div>
-                <div class="row px"><div><b>ReadAllNotifications</b><span>Clear every unread at once</span></div><i class="tog"></i></div>
-                <div class="row px"><div><b>Translate</b><span>Translate any message inline</span></div><i class="tog"></i></div>
-                <div class="row px"><div><b>PlatformIndicators</b><span>See who's on mobile or desktop</span></div><i class="tog"></i></div>
-                <div class="row px"><div><b>HiddenChannels</b><span>Shows channels you can't open</span></div><i class="tog"></i></div>
-                <div class="row px"><div><b>FriendsSince</b><span>When you became friends</span></div><i class="tog"></i></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   </section>
 
-  <div class="ticker" aria-hidden="true"><div class="track" id="ticker"></div></div>
+  <section class="finder">
+    <div class="wrap">
+      <div class="finder-head reveal">
+        <h2 class="h2">What's in it</h2>
+        <p>Every plugin that ships with Vanta, searchable. All of them start switched off.</p>
+      </div>
+      <label class="search px reveal"><input id="hq" type="search" placeholder="Try deleted, translate, voice, emoji…" aria-label="Search Vanta's plugins" autocomplete="off"></label>
+      <p class="count" id="hcount" aria-live="polite"></p>
+      <div class="grid" id="hlist"></div>
+      <p class="more"><a href="/plugins/">All <span data-count>140</span> plugins, by category ▸</a></p>
+    </div>
+  </section>
 
   <section class="block">
     <div class="wrap">
@@ -79,27 +64,25 @@
 
   <section class="final">
     <div class="wrap">
-      <h2 class="h2 reveal">Press start.</h2>
-      <div class="cta reveal" style="--d:1"><a class="btn primary" href="/download/">Download Vanta</a><a class="btn" href="/plugins/">Browse plugins</a></div>
+      <h2 class="h2 reveal">Get it running</h2>
+      <div class="installs">
+        <div class="install px reveal">
+          <h3>Windows</h3>
+          <p>Download the installer, pick your Discord, press Install. Takes about half a minute, and Discord reopens with Vanta in its settings.</p>
+          <a class="btn primary" href="/download/">Download for Windows</a>
+        </div>
+        <div class="install px reveal" style="--d:1">
+          <h3>macOS and Linux</h3>
+          <p>Paste this into Terminal. It checks the download against the release's checksum before running anything.</p>
+          <div class="cmd px"><code>curl -fsSL https://tryvanta.dev/install.sh | sh</code><button type="button" class="btn sm" data-copy>Copy</button></div>
+        </div>
+      </div>
+      <p class="fine reveal">Changed your mind? The same installer takes Vanta out and puts Discord back the way it was. Your settings stay in the Vanta folder in case you come back.</p>
     </div>
   </section>
 </main>
 <script src="/site.js?v=dev"></script>
 <script>
-  // Toggles in the settings mock switch on one after another, then loop
-  const togs = [...document.querySelectorAll(".tog")];
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) togs.forEach((t, i) => i % 3 !== 2 && t.classList.add("on"));
-  else {
-    const order = [0, 3, 1, 4, 2, 5];
-    let step = 0;
-    setTimeout(function tick() {
-      if (step >= 0 && step < order.length) togs[order[step]].classList.add("on");
-      else if (step === order.length + 5) { togs.forEach(t => t.classList.remove("on")); step = -2; }
-      step++;
-      setTimeout(tick, 550);
-    }, 1500);
-  }
-
   // Installs and active Vantas, from GitHub's public download counts (nobody is tracked)
   fetch("https://api.github.com/repos/praisezu/Vanta/releases?per_page=100").then(r => r.json()).then(rel => {
     rel = rel.filter(r => !r.draft && !r.prerelease);
@@ -113,10 +96,24 @@
     el.hidden = false;
   }).catch(() => { });
 
+  // Plugin search: a few favourites until you type, then everything that matches
+  const PICKS = ["MessageLogger", "HiddenChannels", "Translate", "ShowIcon", "CloneAspects", "PlatformIndicators"];
   Vanta.then(({ plugins, esc }) => {
-    if (!plugins.length) return;
-    const names = plugins.map(p => `<span>${esc(p.name)}</span>`).join("");
-    document.getElementById("ticker").innerHTML = names + names; // doubled for a seamless loop
+    const list = document.getElementById("hlist"), count = document.getElementById("hcount"), q = document.getElementById("hq");
+    if (!plugins.length) { list.innerHTML = `<div class="empty">Couldn't load the plugin list. <a href="/plugins/">See it here.</a></div>`; return; }
+    const card = p => `<article class="plugin"><h3>${esc(p.name)}</h3><p>${esc(p.description)}</p><div class="by">${esc(p.category)}</div></article>`;
+    const show = () => {
+      const term = q.value.trim().toLowerCase();
+      const hits = term ? plugins.filter(p => (p.name + " " + p.description + " " + p.category).toLowerCase().includes(term)) : PICKS.map(n => plugins.find(p => p.name === n)).filter(Boolean);
+      list.innerHTML = hits.slice(0, 9).map(card).join("") || `<div class="empty">Nothing for "${esc(q.value)}". <a href="/plugins/">Browse them all.</a></div>`;
+      count.textContent = term ? `${hits.length} match${hits.length === 1 ? "" : "es"}${hits.length > 9 ? " · showing 9" : ""}` : "A few to start with";
+    };
+    q.addEventListener("input", show);
+    show();
+  });
+
+  for (const b of document.querySelectorAll("[data-copy]")) b.addEventListener("click", () => {
+    navigator.clipboard.writeText(b.previousElementSibling.textContent).then(() => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy", 1500); });
   });
 </script>
 </body>

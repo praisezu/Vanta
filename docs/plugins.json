@@ -9,6 +9,11 @@
       "category": "Appearance"
     },
     {
+      "name": "ActiveHere",
+      "description": "Shows who's active in the channel you're in, under the message box: people typing now, and people who sent a message in the last couple of minutes. Hover a face for their name. (Discord never shares who just has a channel open, so this shows activity, not viewers.)",
+      "category": "Chat"
+    },
+    {
       "name": "AlwaysShowTimestamps",
       "description": "Shows the time on every message in a group, not just when you hover.",
       "category": "Appearance"
@@ -97,6 +102,11 @@
       "name": "ClearURLs",
       "description": "Strips tracking parameters (utm_*, fbclid, si, …) from links in messages you send.",
       "category": "Privacy"
+    },
+    {
+      "name": "CloneAspects",
+      "description": "Right-click a custom emoji, a sticker or a server icon to clone it: emoji and stickers into a server where you're allowed to add them, and servers into a new server of your own (roles, channels, categories, permissions and icon, no messages or members).",
+      "category": "Utility"
     },
     {
       "name": "CollapseLongMessages",
@@ -225,7 +235,7 @@
     },
     {
       "name": "HiddenChannels",
-      "description": "Shows which channels in a server you can't see (names, categories and topics), in a read-only list.",
+      "description": "Shows the channels and categories in a server that you can't see, with their names and topics (you still can't read their messages). Turns off Discord's channel hiding, the way Vencord's ShowHiddenChannels does.",
       "category": "Utility"
     },
     {
@@ -539,6 +549,11 @@
       "category": "Appearance"
     },
     {
+      "name": "ShowIcon",
+      "description": "Double-click a profile picture, banner or server icon to see it up close, then copy or save it.",
+      "category": "Utility"
+    },
+    {
       "name": "ShowMeYourName",
       "description": "Shows people's @username next to their display name in chat, so you always know who's who.",
       "category": "Chat"
@@ -557,6 +572,11 @@
       "name": "SilentTyping",
       "description": "Hides your typing indicator from other people.",
       "category": "Privacy"
+    },
+    {
+      "name": "SkipOnboarding",
+      "description": "Skips a server's onboarding questions when you join, so you go straight to the channels. Questions the server requires get their first answer (which can give you that answer's roles).",
+      "category": "Utility"
     },
     {
       "name": "SmartPunctuation",

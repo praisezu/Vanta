@@ -12,7 +12,8 @@ const plugins = [];
 for (const file of readdirSync(dir).filter(f => f.endsWith(".ts"))) {
     const src = readFileSync(join(dir, file), "utf8");
     // Each plugin object starts with name: "…", followed by description and category somewhere after.
-    const re = /name:\s*"([A-Za-z0-9]+)",\s*\n\s*description:\s*"((?:[^"\\]|\\.)*)"[\s\S]*?category:\s*"(\w+)"/g;
+    // (a renamed plugin has a formerNames line between name and description)
+    const re = /name:\s*"([A-Za-z0-9]+)",\s*\n(?:\s*formerNames:[^\n]*\n)?\s*description:\s*"((?:[^"\\]|\\.)*)"[\s\S]*?category:\s*"(\w+)"/g;
     for (const m of src.matchAll(re)) plugins.push({ name: m[1], description: m[2].replace(/\\"/g, '"'), category: m[3] });
 }
 plugins.sort((a, b) => a.name.localeCompare(b.name));
