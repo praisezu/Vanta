@@ -99,7 +99,9 @@ img.px-img { image-rendering: pixelated; }
 .tag-line { margin: 22px auto 34px; max-width: 560px; font-size: 19px; color: var(--muted); }
 .tag-line b { color: var(--text); font-weight: 600; }
 .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-.meta { margin-top: 20px; font: 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+.meta { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 28px; font: 12px var(--mono); color: var(--dim); text-transform: uppercase; letter-spacing: .08em; }
+.meta > * { white-space: nowrap; }
+.meta [hidden] { display: none; }
 .meta a { color: var(--muted); text-decoration: none; }
 .meta a:hover { color: var(--v-hi); }
 

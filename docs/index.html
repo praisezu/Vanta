@@ -27,7 +27,7 @@
         <a class="btn" data-link="discord" href="#" hidden>Discord</a>
         <a class="btn" data-link="github" href="#">GitHub</a>
       </div>
-      <p class="meta in" style="--d:4"><a data-link="release" href="#">v<span data-version>0.5</span> · What's new ▸</a> &nbsp;·&nbsp; Windows · macOS · Linux &nbsp;·&nbsp; Open source<span id="community" hidden></span></p>
+      <p class="meta in" style="--d:4"><a data-link="release" href="#">v<span data-version>0.5</span> — what's new ▸</a><span>Windows, macOS, Linux</span><span>Open source</span><span id="community" hidden></span></p>
 
     </div>
   </section>
@@ -91,7 +91,7 @@
     const fresh = rel[0] && Date.now() - Date.parse(rel[0].published_at) < 864e5;
     const active = Math.max(count(rel[0], /^(vanta|obsid).tar.gz$/), fresh ? count(rel[1], /^(vanta|obsid).tar.gz$/) : 0);
     const el = document.getElementById("community");
-    el.textContent = `  ·  ${installs.toLocaleString()} installs · ${active.toLocaleString()} active`;
+    el.textContent = `${installs.toLocaleString()} installs, ${active.toLocaleString()} active`;
     el.title = "From GitHub's public download counts. Active = Vantas that downloaded the newest update.";
     el.hidden = false;
   }).catch(() => { });
