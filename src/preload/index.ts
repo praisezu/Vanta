@@ -4,6 +4,7 @@
  */
 import { contextBridge, ipcRenderer, webFrame } from "electron";
 import type { NativeAPI, RendererScript } from "@shared/types";
+import { earlyGatewayHook } from "../shared/earlyGatewayHook";
 
 const invoke = (ch: string, ...a: unknown[]) => ipcRenderer.invoke("vanta:" + ch, ...a);
 
@@ -78,6 +79,15 @@ else (window as any).VantaNative = native;
 
 // Only run inside Discord's web app (not devtools or other origins).
 if (/^https:\/\/(\w+\.)?discord\.com/.test(location.href)) {
+    // First of all, before Discord's page code runs: HiddenChannels' connection hook (its fast startup connection
+    // goes out about 3 seconds in, long before Vanta's main code has loaded)
+    try {
+        const hc = (native.getSettings() as any)?.plugins?.HiddenChannels;
+        const on = !native.info?.safeMode && !!hc?.enabled && hc.options?.realNames !== false;
+        webFrame.executeJavaScript(`performance.mark("vanta:preload");(${earlyGatewayHook.toString()})(${on});
+void 0;
+//# sourceURL=vanta://gateway-hook`).catch(() => { });
+    } catch { /* never block Discord */ }
     (async () => {
         const scripts: RendererScript[] = ipcRenderer.sendSync("vanta:get-renderer");
         for (const { name, code } of scripts) {

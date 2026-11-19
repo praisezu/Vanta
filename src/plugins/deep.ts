@@ -90,11 +90,11 @@ export default [
 
     definePlugin({
         name: "HiddenChannels",
-        description: "Shows the channels and categories in a server that you can't see, with their names and topics (you still can't read their messages). Turns off Discord's channel hiding, the way Vencord's ShowHiddenChannels does.",
+        description: "Shows the channels and categories in a server that you can't see: what kind they are and which category they're in, plus names and topics when Discord still sends them (since 16 November 2026 it mostly doesn't).",
         authors: ["Vanta"], category: "Utility",
         needsWebpack: true,
         options: {
-            realNames: { type: "boolean", default: true, label: "Show their real names", description: "Asks Discord not to blank them out (it reconnects once, never during a voice call). Off: they show as \"Hidden text channel 1\" and so on." },
+            realNames: { type: "boolean", default: true, label: "Ask Discord for their real names", description: "Tells Discord's servers not to blank them when connecting. Discord stopped honouring this for most accounts on 16 November 2026, but it costs nothing." },
         },
 
         /** Is Discord blanking hidden channels in this session? */
@@ -125,25 +125,12 @@ export default [
                 sock.send = (op: number, payload: any, ...rest: any[]) => {
                     if (op === IDENTIFY && payload && typeof payload.capabilities === "number") {
                         payload = { ...payload, capabilities: payload.capabilities & ~OBFUSCATION_CAPABILITY };
-                        // The one reconnect that swaps blanked channels for real ones: ask for every server in full
-                        if (this.fullResync) { this.fullResync = false; payload.client_state = { ...payload.client_state, guild_versions: {} }; }
                     }
                     return send(op, payload, ...rest);
                 };
                 offs.push(() => { if (sock.send !== send) sock.send = send; });
             }
             this.undoUnhide = () => offs.forEach(f => f());
-            // This session already came in blanked: reconnect once (Discord's normal reconnect, like after a network
-            // blip), but never in the middle of a voice call
-            this.resyncTimer = setInterval(() => {
-                if (this.resynced || !this.obfuscatedNow()) { clearInterval(this.resyncTimer); return; }
-                if (common.SelectedChannelStore?.getVoiceChannelId?.()) return;
-                const s = webpack.findStore("GatewayConnectionStore")?.getSocket?.();
-                if (!s?.isSessionEstablished?.()) return;
-                this.resynced = true;
-                this.fullResync = true;
-                s.close();
-            }, 5000);
         },
         /** Channels and categories your roles can't see, in the order they appear */
         hidden(guildId: string) {
@@ -187,9 +174,7 @@ export default [
                 title: `Hidden in this server: ${channels} channel${channels === 1 ? "" : "s"}${hiddenCats ? `, ${hiddenCats} categor${hiddenCats === 1 ? "y" : "ies"}` : ""}`,
                 body: [
                     this.obfuscatedNow()
-                        ? ui.note("warn", this.settings.realNames
-                            ? (common.SelectedChannelStore?.getVoiceChannelId?.() ? "Real names load after a quick reconnect once you leave your voice call." : "Loading the real names… (a quick reconnect)")
-                            : "Discord is blanking these. Turn on \"Show their real names\" in this plugin's settings to see them.")
+                        ? ui.note("", "Since 16 November 2026 Discord blanks the names and topics of channels you can't see for everyone, on its servers, so no app (Vencord included) can show them any more. What's left is what kind each one is and where it sits.")
                         : null,
                     h("div", { class: "vanta-hidden-list" }, sections),
                 ],
@@ -220,7 +205,7 @@ export default [
                 if (this.pill.parentElement !== scroller) scroller.append(this.pill);
             }, 1500);
         },
-        stop() { clearInterval(this.timer); clearInterval(this.resyncTimer); this.undoUnhide?.(); this.undoUnhide = null; this.pill?.remove(); this.pill = null; this.style?.remove(); },
+        stop() { clearInterval(this.timer); this.undoUnhide?.(); this.undoUnhide = null; this.pill?.remove(); this.pill = null; this.style?.remove(); },
     }),
 
     definePlugin({

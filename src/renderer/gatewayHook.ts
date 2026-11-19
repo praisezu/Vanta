@@ -11,6 +11,7 @@
  * "capabilities" followed by an integer: 97 + 1 byte, or 98 + 4 bytes big-endian.
  */
 import { settings } from "./core/settings";
+export { earlyGatewayHook } from "../shared/earlyGatewayHook";
 
 export const OBFUSCATION_CAPABILITY = 1 << 15;
 const KEY = new TextEncoder().encode("capabilities");
@@ -54,7 +55,10 @@ export function stripJson(text: string): string {
     } catch { return text; }
 }
 
+/** Backup, in case the preload's early copy didn't run */
 export function installGatewayHook() {
+    if ((window as any).__vantaGatewayHook) return;
+    (window as any).__vantaGatewayHook = { at: performance.now(), stripped: 0, late: true };
     const proto = WebSocket.prototype;
     const send = proto.send;
     proto.send = function (this: WebSocket, data: any) {

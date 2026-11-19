@@ -67,6 +67,8 @@ if (w.Vanta) {
         definePlugin: registerPlugin,
         removePlugin, isPluginEnabled, setPluginEnabled, checkForUpdates,
         ui: { ...ui, open: quickPanel.show, close: quickPanel.hide, settingsSidebar },
+        /** Per-plugin CPU time and errors (what the Performance page shows) */
+        health,
         __currentFile: null as string | null,
         /** Called by the preload after imported plugins have loaded. */
         __boot() {
@@ -81,7 +83,9 @@ if (w.Vanta) {
                 setPluginEnabled(name, false).then(() => { p.error = "Turned off by the crash shield: " + error; });
                 ui.toast(`${name} kept failing, so Vanta turned it off. (${error})`, { type: "danger", ms: 9000 });
             });
+            performance.mark("vanta:boot");
             startAll();
+            performance.mark("vanta:plugins-started");
             startServerProfiles();
             if (!inSafeMode()) startVantaBadge();
             webpack.ready.then(() => {
@@ -98,5 +102,6 @@ if (w.Vanta) {
     // Vanta used to be called Obsid; plugins written as Obsid.definePlugin(...) keep working.
     w.Obsid = w.Vanta;
     quickCss.apply();
+    performance.mark("vanta:loaded");
     logger.log(`v${__VANTA_VERSION__} loaded`);
 }
