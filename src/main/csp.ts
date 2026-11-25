@@ -35,15 +35,19 @@ export function relaxPolicy(policy: string) {
     return out.join("; ");
 }
 
+const isCsp = (key: string) => /^content-security-policy(-report-only)?$/i.test(key);
+
+/** Relaxes the CSP headers in place. Returns false (and changes nothing) when there's no CSP header. */
 function relaxHeaders(headers: Record<string, string[] | string> | undefined) {
-    if (!headers) return headers;
+    if (!headers) return false;
+    let found = false;
     for (const key of Object.keys(headers)) {
-        const lower = key.toLowerCase();
-        if (lower !== "content-security-policy" && lower !== "content-security-policy-report-only") continue;
+        if (!isCsp(key)) continue;
+        found = true;
         const value = headers[key];
         headers[key] = Array.isArray(value) ? value.map(relaxPolicy) : relaxPolicy(String(value));
     }
-    return headers;
+    return found;
 }
 
 /** Simple Electron URL-pattern matcher ("*://*.discord.com/*" style) for wrapped listeners' filters. */
@@ -57,10 +61,18 @@ export function installCspPatch() {
     let wrapped: { listener: Listener; urls?: string[] } | null = null;
 
     const ours: Listener = (details, callback) => {
+        // Only responses that carry a CSP (pages) are changed. Everything else, videos and their partial ("range")
+        // downloads included, goes through exactly as Discord's servers sent it: rewriting media responses' headers
+        // can make videos fail to play.
         const finish = (response: HeadersReceivedResponse = {}) => {
             if (response.cancel) return callback(response);
-            const headers = relaxHeaders((response.responseHeaders ?? details.responseHeaders) as any);
-            callback({ ...response, responseHeaders: headers as any });
+            if (response.responseHeaders) {
+                relaxHeaders(response.responseHeaders as any);
+                return callback(response);
+            }
+            const copy = details.responseHeaders ? { ...details.responseHeaders } : undefined;
+            if (relaxHeaders(copy as any)) return callback({ ...response, responseHeaders: copy as any });
+            callback(response); // nothing to relax: untouched
         };
         if (wrapped && matches(details.url, wrapped.urls)) {
             try { wrapped.listener(details, finish); } catch (e) { console.error("[Vanta] wrapped header listener threw", e); finish(); }
