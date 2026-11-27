@@ -1,5 +1,5 @@
 {
-  "version": "0.6.8.9",
+  "version": "0.6.9",
   "repo": "praisezu/Vanta",
   "discord": "https://discord.gg/Eh6fSPnznj",
   "plugins": [
@@ -229,13 +229,18 @@
       "category": "Utility"
     },
     {
+      "name": "GifWithMessage",
+      "description": "Picking a GIF doesn't send it straight away: its link goes into your message box, so you can write something with it and send both together. Shift+click a GIF to send it right away like before.",
+      "category": "Chat"
+    },
+    {
       "name": "GrayscaleMode",
       "description": "Turns Discord black and white. Less distracting when you're trying to focus.",
       "category": "Appearance"
     },
     {
       "name": "HiddenChannels",
-      "description": "Shows the channels and categories in a server that you can't see, with their names and topics (you still can't read their messages). Turns off Discord's channel hiding, the way Vencord's ShowHiddenChannels does.",
+      "description": "Shows the channels and categories in a server that you can't see: what kind they are and which category they're in, plus names and topics when Discord still sends them (since 16 November 2026 it mostly doesn't).",
       "category": "Utility"
     },
     {
